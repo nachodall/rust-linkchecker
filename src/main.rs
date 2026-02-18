@@ -3,6 +3,7 @@ use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
 
+mod models;
 mod parser;
 
 #[derive(Parser, Debug)]
@@ -19,7 +20,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let links = parser::extract_links(&content);
 
     for link in links {
-        println!("{}", link);
+        let checked_link = models::LinkCheckResult::new(link);
+        println!("{}", checked_link.url);
     }
 
     Ok(())
