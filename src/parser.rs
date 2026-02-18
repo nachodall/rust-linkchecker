@@ -14,14 +14,12 @@ pub fn extract_links(content: &str) -> Vec<String> {
 
 pub fn extract_title(html_contents: &str) -> Option<String> {
     let html_parts = Html::parse_document(html_contents);
-    // selector for <title> tag
     let selector = Selector::parse("title").ok()?;
-    let title = html_parts.select(&selector).next();
 
-    match title {
-        Some(t) => Some(t.inner_html()),
-        None => None,
-    }
+    html_parts
+        .select(&selector)
+        .next()
+        .map(|content| content.inner_html())
 }
 
 #[cfg(test)]
@@ -65,5 +63,24 @@ Here is a [Google](https://google.com) link and a [broken link](https://esto-no-
         let title = extract_title(html).unwrap();
 
         assert_eq!(title, String::from("Lambda Class Residency"));
+    }
+
+    #[test]
+    fn extract_title_when_its_missing() {
+        let html = r#"
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <meta charset="utf-8">
+                </head>
+                <body>
+                    <h1>Página sin título</h1>
+                </body>
+            </html>
+        "#;
+
+        let title = extract_title(html);
+
+        assert!(title.is_none(), "Should be None");
     }
 }
