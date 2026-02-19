@@ -16,8 +16,6 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let _ = parser::extract_title("");
-
     let args = Args::parse();
     let content = fs::read_to_string(&args.input)?;
     let links = parser::extract_links(&content);
