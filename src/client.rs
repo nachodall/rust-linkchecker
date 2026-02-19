@@ -15,10 +15,10 @@ pub async fn check_url(client: &Client, result: &mut LinkCheckResult) {
             let status = response.status();
             result.http_status = Some(status.as_u16());
 
-            if status.is_success() {
-                if let Ok(body) = response.text().await {
-                    result.title = parser::extract_title(&body);
-                }
+            if status.is_success()
+                && let Ok(body) = response.text().await
+            {
+                result.title = parser::extract_title(&body);
             }
         }
         Err(e) => {

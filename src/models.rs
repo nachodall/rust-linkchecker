@@ -1,4 +1,3 @@
-#[allow(dead_code)]
 pub struct LinkCheckResult {
     pub url: String,
     pub title: Option<String>,
@@ -6,7 +5,6 @@ pub struct LinkCheckResult {
     pub error: Option<String>,
 }
 
-#[allow(dead_code)]
 impl LinkCheckResult {
     pub fn new(url: String) -> Self {
         Self {
