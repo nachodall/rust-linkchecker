@@ -7,6 +7,7 @@ pub enum LinkCheckerError {
     InvalidUrl(String),
     HttpError(u16),
     IoError(String),
+    RunTimeError(String),
 }
 
 impl fmt::Display for LinkCheckerError {
@@ -16,11 +17,19 @@ impl fmt::Display for LinkCheckerError {
             LinkCheckerError::InvalidUrl(url) => write!(f, "Invalid URL: {}", url),
             LinkCheckerError::HttpError(status) => write!(f, "HTTP status error: {}", status),
             LinkCheckerError::IoError(msg) => write!(f, "IO error: {}", msg),
+            LinkCheckerError::RunTimeError(msg) => write!(f, "Runtime error: {}", msg),
         }
     }
 }
 
 impl Error for LinkCheckerError {}
+
+/// Enables automatic conversion from tokio::task::JoinError to RunTimeError, allowing seamless error propagation using the '?' operator in main.rs.
+impl From<tokio::task::JoinError> for LinkCheckerError {
+    fn from(err: tokio::task::JoinError) -> Self {
+        LinkCheckerError::RunTimeError(err.to_string())
+    }
+}
 
 pub struct LinkCheckResult {
     pub url: String,
@@ -36,6 +45,7 @@ impl LinkCheckResult {
             status: Ok(0), // Initial state, will be updated
         }
     }
+
     pub fn is_ok(&self) -> bool {
         matches!(self.status, Ok(200))
     }
