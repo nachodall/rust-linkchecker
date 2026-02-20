@@ -1,8 +1,40 @@
+use std::error::Error;
+use std::fmt;
+
+#[derive(Debug, Clone)]
+pub enum LinkCheckerError {
+    NetworkError(String),
+    InvalidUrl(String),
+    HttpError(u16),
+    IoError(String),
+    RunTimeError(String),
+}
+
+impl fmt::Display for LinkCheckerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            LinkCheckerError::NetworkError(msg) => write!(f, "Network error: {}", msg),
+            LinkCheckerError::InvalidUrl(url) => write!(f, "Invalid URL: {}", url),
+            LinkCheckerError::HttpError(status) => write!(f, "HTTP status error: {}", status),
+            LinkCheckerError::IoError(msg) => write!(f, "IO error: {}", msg),
+            LinkCheckerError::RunTimeError(msg) => write!(f, "Runtime error: {}", msg),
+        }
+    }
+}
+
+impl Error for LinkCheckerError {}
+
+/// Enables automatic conversion from tokio::task::JoinError to RunTimeError, allowing seamless error propagation using the '?' operator in main.rs.
+impl From<tokio::task::JoinError> for LinkCheckerError {
+    fn from(err: tokio::task::JoinError) -> Self {
+        LinkCheckerError::RunTimeError(err.to_string())
+    }
+}
+
 pub struct LinkCheckResult {
     pub url: String,
     pub title: Option<String>,
-    pub http_status: Option<u16>,
-    pub error: Option<String>,
+    pub status: Result<u16, LinkCheckerError>,
 }
 
 impl LinkCheckResult {
@@ -10,26 +42,24 @@ impl LinkCheckResult {
         Self {
             url,
             title: None,
-            http_status: None,
-            error: None,
+            status: Ok(0), // Initial state, will be updated
         }
     }
-    pub fn is_valid_link(&self) -> bool {
-        self.http_status == Some(200) && self.error.is_none()
+
+    pub fn is_ok(&self) -> bool {
+        matches!(self.status, Ok(200))
     }
 
     pub fn produce_link_checker_report(&self) -> String {
         let label = self.title.as_deref().unwrap_or(&self.url);
 
-        if self.is_valid_link() {
-            format!("[OK] {} -> {}", label, self.url)
-        } else {
-            let reason = match (self.http_status, &self.error) {
-                (_, Some(err)) => err.clone(),
-                (Some(status), _) => format!("HTTP status error: {}", status),
-                (None, None) => "Unknown error".to_string(),
-            };
-            format!("[FAIL] {} -> {} (Reason: {})", label, self.url, reason)
+        match &self.status {
+            Ok(200) => format!("[OK] {} -> {}", label, self.url),
+            Ok(code) => format!(
+                "[FAIL] {} -> {} (Reason: HTTP status error: {})",
+                label, self.url, code
+            ),
+            Err(err) => format!("[FAIL] {} -> {} (Reason: {})", label, self.url, err),
         }
     }
 }
@@ -39,38 +69,40 @@ mod tests {
     use super::*;
 
     #[test]
-    fn is_valid_link_should_return_true_when_status_is_ok() {
+    fn is_ok_should_return_true_when_status_is_200() {
         let mut result = LinkCheckResult::new("https://google.com".to_string());
-        result.http_status = Some(200);
-        assert!(result.is_valid_link());
+        result.status = Ok(200);
+        assert!(result.is_ok());
     }
 
     #[test]
-    fn is_valid_link_should_return_false_when_network_fails() {
+    fn is_ok_should_return_false_when_network_fails() {
         let mut result = LinkCheckResult::new("https://fake_domain.com".to_string());
-        result.error = Some("Connection refused".to_string());
-        assert!(!result.is_valid_link());
+        result.status = Err(LinkCheckerError::NetworkError(
+            "Connection refused".to_string(),
+        ));
+        assert!(!result.is_ok());
     }
 
     #[test]
-    fn is_valid_link_should_return_false_when_status_is_not_found() {
+    fn is_ok_should_return_false_when_status_is_not_found() {
         let mut result = LinkCheckResult::new("https://example.com/404".to_string());
-        result.http_status = Some(404);
-        assert!(!result.is_valid_link());
+        result.status = Ok(404);
+        assert!(!result.is_ok());
     }
 
     #[test]
-    fn is_valid_link_should_return_false_when_status_is_server_error() {
+    fn is_ok_should_return_false_when_status_is_server_error() {
         let mut result = LinkCheckResult::new("https://site.com/500".to_string());
-        result.http_status = Some(500);
-        assert!(!result.is_valid_link());
+        result.status = Ok(500);
+        assert!(!result.is_ok());
     }
 
     #[test]
     fn format_report_should_use_title_when_available() {
         let mut result = LinkCheckResult::new("https://rust-lang.org".to_string());
         result.title = Some("Rust Programming Language".to_string());
-        result.http_status = Some(200);
+        result.status = Ok(200);
         let report = result.produce_link_checker_report();
         assert!(report.contains("Rust Programming Language"));
         assert!(report.starts_with("[OK]"));
@@ -86,9 +118,9 @@ mod tests {
     #[test]
     fn format_report_should_show_error_message_on_failure() {
         let mut result = LinkCheckResult::new("https://the_timeout_error_page.com".to_string());
-        result.error = Some("Timeout".to_string());
+        result.status = Err(LinkCheckerError::NetworkError("Timeout".to_string()));
         let report = result.produce_link_checker_report();
         assert!(report.starts_with("[FAIL]"));
-        assert!(report.contains("Reason: Timeout"));
+        assert!(report.contains("Reason: Network error: Timeout"));
     }
 }
