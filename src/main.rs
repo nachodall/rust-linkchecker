@@ -16,6 +16,8 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    let _ = parser::extract_title(""); //Making clippy happy
+
     let args = Args::parse();
     let content = fs::read_to_string(&args.input)
         .map_err(|e| models::LinkCheckerError::IoError(e.to_string()))?;
@@ -23,27 +25,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let links = parser::extract_links(&content);
     let http_client = reqwest::Client::new();
 
-    let mut set = JoinSet::new();
-
     for link in links {
-        let client = http_client.clone();
-        set.spawn(async move {
-            let mut res = models::LinkCheckResult::new(link);
-            client::check_url(&client, &mut res).await;
-            res
-        });
-    }
-
-    let mut successful_checks = 0;
-    let mut total_checks = 0;
-
-    while let Some(res) = set.join_next().await {
-        let check_result = res?;
-        if check_result.is_ok() {
-            successful_checks += 1;
-        }
-        total_checks += 1;
-        println!("{}", check_result.produce_link_checker_report());
+        let mut res = models::LinkCheckResult::new(link);
+        client::check_url(&http_client, &mut res).await;
+        println!("{}", res.produce_link_checker_report());
     }
 
     println!(
