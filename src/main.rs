@@ -17,7 +17,9 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
-    let content = fs::read_to_string(&args.input)?;
+    let content = fs::read_to_string(&args.input)
+        .map_err(|e| models::LinkCheckerError::IoError(e.to_string()))?;
+    
     let links = parser::extract_links(&content);
     let http_client = reqwest::Client::new();
 
@@ -32,10 +34,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
         });
     }
 
+    let mut successful_checks = 0;
+    let mut total_checks = 0;
+
     while let Some(res) = set.join_next().await {
-        let res = res?;
-        println!("{}", res.produce_link_checker_report());
+        let check_result = res?;
+        if check_result.is_ok() {
+            successful_checks += 1;
+        }
+        total_checks += 1;
+        println!("{}", check_result.produce_link_checker_report());
     }
 
+    println!("\n> [Summary] {} links worked out of {} total links checked.", successful_checks, total_checks);
     Ok(())
 }

@@ -1,11 +1,19 @@
-use crate::models::LinkCheckResult;
+use crate::models::{LinkCheckResult, LinkCheckerError};
 use crate::parser;
 use reqwest::Client;
 use std::time::Duration;
 
 pub async fn check_url(client: &Client, result: &mut LinkCheckResult) {
+    let url = match reqwest::Url::parse(&result.url) {
+        Ok(u) => u,
+        Err(_) => {
+            result.status = Err(LinkCheckerError::InvalidUrl(result.url.clone()));
+            return;
+        }
+    };
+
     let response_result = client
-        .get(&result.url)
+        .get(url)
         .timeout(Duration::from_secs(5))
         .send()
         .await;
@@ -13,16 +21,19 @@ pub async fn check_url(client: &Client, result: &mut LinkCheckResult) {
     match response_result {
         Ok(response) => {
             let status = response.status();
-            result.http_status = Some(status.as_u16());
-
-            if status.is_success()
-                && let Ok(body) = response.text().await
-            {
-                result.title = parser::extract_title(&body);
+            if status.is_success() {
+                result.status = Ok(status.as_u16());
+                if let Ok(body) = response.text().await {
+                    result.title = parser::extract_title(&body);
+                }
+            } else if status.is_client_error() || status.is_server_error() {
+                result.status = Err(LinkCheckerError::HttpError(status.as_u16()));
+            } else {
+                result.status = Ok(status.as_u16());
             }
         }
         Err(e) => {
-            result.error = Some(e.to_string());
+            result.status = Err(LinkCheckerError::NetworkError(e.to_string()));
         }
     }
 }
@@ -39,9 +50,8 @@ mod tests {
 
         check_url(&client, &mut result).await;
 
-        assert_eq!(result.http_status, Some(200));
+        assert_eq!(*result.status.as_ref().unwrap(), 200);
         assert!(result.title.is_some());
-        assert!(result.error.is_none());
     }
 
     #[tokio::test]
@@ -52,8 +62,11 @@ mod tests {
 
         check_url(&client, &mut result).await;
 
-        assert_eq!(result.http_status, Some(404));
-        assert!(!result.is_valid_link());
+        match result.status {
+            Err(LinkCheckerError::HttpError(404)) => (),
+            _ => panic!("Expected HttpError(404), got {:?}", result.status),
+        }
+        assert!(!result.is_ok());
     }
 
     #[tokio::test]
@@ -64,7 +77,6 @@ mod tests {
 
         check_url(&client, &mut result).await;
 
-        assert!(result.error.is_some());
-        assert!(result.http_status.is_none());
+        assert!(result.status.is_err());
     }
 }
