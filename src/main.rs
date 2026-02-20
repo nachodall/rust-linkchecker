@@ -1,5 +1,4 @@
 use clap::Parser;
-use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
 use tokio::task::JoinSet;
