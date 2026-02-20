@@ -4,6 +4,8 @@ use std::fs;
 use std::path::PathBuf;
 use tokio::task::JoinSet;
 
+use crate::models::LinkCheckerError;
+
 mod client;
 mod models;
 mod parser;
@@ -15,7 +17,7 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<(), LinkCheckerError> {
     let args = Args::parse();
     let content = fs::read_to_string(&args.input)
         .map_err(|e| models::LinkCheckerError::IoError(e.to_string()))?;
