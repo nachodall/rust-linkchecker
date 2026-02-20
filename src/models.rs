@@ -45,7 +45,10 @@ impl LinkCheckResult {
 
         match &self.status {
             Ok(200) => format!("[OK] {} -> {}", label, self.url),
-            Ok(code) => format!("[FAIL] {} -> {} (Reason: HTTP status error: {})", label, self.url, code),
+            Ok(code) => format!(
+                "[FAIL] {} -> {} (Reason: HTTP status error: {})",
+                label, self.url, code
+            ),
             Err(err) => format!("[FAIL] {} -> {} (Reason: {})", label, self.url, err),
         }
     }
@@ -65,7 +68,9 @@ mod tests {
     #[test]
     fn is_ok_should_return_false_when_network_fails() {
         let mut result = LinkCheckResult::new("https://fake_domain.com".to_string());
-        result.status = Err(LinkCheckerError::NetworkError("Connection refused".to_string()));
+        result.status = Err(LinkCheckerError::NetworkError(
+            "Connection refused".to_string(),
+        ));
         assert!(!result.is_ok());
     }
 

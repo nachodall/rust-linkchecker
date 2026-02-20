@@ -12,11 +12,7 @@ pub async fn check_url(client: &Client, result: &mut LinkCheckResult) {
         }
     };
 
-    let response_result = client
-        .get(url)
-        .timeout(Duration::from_secs(5))
-        .send()
-        .await;
+    let response_result = client.get(url).timeout(Duration::from_secs(5)).send().await;
 
     match response_result {
         Ok(response) => {

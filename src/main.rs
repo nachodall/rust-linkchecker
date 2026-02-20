@@ -19,7 +19,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
     let content = fs::read_to_string(&args.input)
         .map_err(|e| models::LinkCheckerError::IoError(e.to_string()))?;
-    
+
     let links = parser::extract_links(&content);
     let http_client = reqwest::Client::new();
 
@@ -46,6 +46,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         println!("{}", check_result.produce_link_checker_report());
     }
 
-    println!("\n> [Summary] {} links worked out of {} total links checked.", successful_checks, total_checks);
+    println!(
+        "\n> [Summary] {} links worked out of {} total links checked.",
+        successful_checks, total_checks
+    );
     Ok(())
 }
