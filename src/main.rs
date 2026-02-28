@@ -1,9 +1,10 @@
+use crate::models::LinkCheckerError;
 use clap::Parser;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
-
-use crate::models::LinkCheckerError;
 
 mod client;
 mod models;
@@ -25,10 +26,16 @@ async fn main() -> Result<(), LinkCheckerError> {
     let http_client = reqwest::Client::new();
 
     let mut set = JoinSet::new();
+    let semaphore = Arc::new(Semaphore::new(32));
 
     for link in links {
         let client = http_client.clone();
+        let permit = semaphore.clone().acquire_owned().await.map_err(|e| {
+            models::LinkCheckerError::RunTimeError(format!("Semaphore error: {}", e))
+        })?;
+
         set.spawn(async move {
+            let _permit = permit;
             let mut res = models::LinkCheckResult::new(link);
             client::check_url(&client, &mut res).await;
             res
@@ -37,6 +44,7 @@ async fn main() -> Result<(), LinkCheckerError> {
 
     let mut successful_checks = 0;
     let mut total_checks = 0;
+    let mut results = Vec::new();
 
     while let Some(res) = set.join_next().await {
         let check_result = res?;
@@ -44,8 +52,12 @@ async fn main() -> Result<(), LinkCheckerError> {
             successful_checks += 1;
         }
         total_checks += 1;
-        println!("{}", check_result.produce_link_checker_report());
+        results.push(check_result.produce_link_checker_report());
     }
+
+    let output_content = results.join("\n");
+    fs::write("output.md", output_content)
+        .map_err(|e| models::LinkCheckerError::IoError(e.to_string()))?;
 
     println!(
         "\n> [Summary] {} links worked out of {} total links checked.",
