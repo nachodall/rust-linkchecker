@@ -132,9 +132,6 @@ mod tests {
         let mut result = LinkCheckResult::new("https://the_timeout_error_page.com".to_string());
         result.status = Err(LinkCheckerError::NetworkError("Timeout".to_string()));
         let report = result.produce_link_checker_report();
-        assert_eq!(
-            report,
-            "[ Timeout ] ( https://the_timeout_error_page.com )"
-        );
+        assert_eq!(report, "[ Timeout ] ( https://the_timeout_error_page.com )");
     }
 }
