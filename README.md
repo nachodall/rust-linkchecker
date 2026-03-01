@@ -16,8 +16,7 @@ The generated `output.md` will list each URL in the following format:
 ## 1. Getting Started
 
 ### Prerequisites
-- **Rust** (installed via `asdf` or `rustup`).
-- **Make** (for executing build tasks).
+- **Rust** 1.80.0 +.
 
 ### 2. Installation & Build
 To set up the project and compile the release binary:
