@@ -51,15 +51,21 @@ impl LinkCheckResult {
     }
 
     pub fn produce_link_checker_report(&self) -> String {
-        let label = self.title.as_deref().unwrap_or(&self.url);
-
-        match &self.status {
-            Ok(200) => format!("[OK] {} -> {}", label, self.url),
-            Ok(code) => format!(
-                "[FAIL] {} -> {} (Reason: HTTP status error: {})",
-                label, self.url, code
-            ),
-            Err(err) => format!("[FAIL] {} -> {} (Reason: {})", label, self.url, err),
+        if self.is_ok() {
+            let label = self.title.as_deref().unwrap_or(&self.url);
+            format!("[ {} ] ( {} )", label, self.url)
+        } else {
+            let error_code = match &self.status {
+                Ok(code) => code.to_string(),
+                Err(err) => match err {
+                    LinkCheckerError::HttpError(code) => code.to_string(),
+                    LinkCheckerError::NetworkError(msg) => msg.clone(),
+                    LinkCheckerError::InvalidUrl(_) => "Invalid URL".to_string(),
+                    LinkCheckerError::IoError(msg) => msg.clone(),
+                    LinkCheckerError::RunTimeError(msg) => msg.clone(),
+                },
+            };
+            format!("[ {} ] ( {} )", error_code, self.url)
         }
     }
 }
@@ -104,15 +110,21 @@ mod tests {
         result.title = Some("Rust Programming Language".to_string());
         result.status = Ok(200);
         let report = result.produce_link_checker_report();
-        assert!(report.contains("Rust Programming Language"));
-        assert!(report.starts_with("[OK]"));
+        assert_eq!(
+            report,
+            "[ Rust Programming Language ] ( https://rust-lang.org )"
+        );
     }
 
     #[test]
     fn format_report_should_use_url_when_title_is_missing() {
-        let result = LinkCheckResult::new("https://www.421.news/es/".to_string());
+        let mut result = LinkCheckResult::new("https://www.421.news/es/".to_string());
+        result.status = Ok(200);
         let report = result.produce_link_checker_report();
-        assert!(report.contains("https://www.421.news/es/"));
+        assert_eq!(
+            report,
+            "[ https://www.421.news/es/ ] ( https://www.421.news/es/ )"
+        );
     }
 
     #[test]
@@ -120,7 +132,6 @@ mod tests {
         let mut result = LinkCheckResult::new("https://the_timeout_error_page.com".to_string());
         result.status = Err(LinkCheckerError::NetworkError("Timeout".to_string()));
         let report = result.produce_link_checker_report();
-        assert!(report.starts_with("[FAIL]"));
-        assert!(report.contains("Reason: Network error: Timeout"));
+        assert_eq!(report, "[ Timeout ] ( https://the_timeout_error_page.com )");
     }
 }
