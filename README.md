@@ -4,36 +4,41 @@ A concurrent Rust-based tool designed to validate URLs within Markdown files, ex
 
 ## Description
 
-The **Linkchecker** parses an input Markdown file to extract all contained URLs. For each URL, the program performs an asynchronous HTTP request to retrieve the page's HTML body and extract the `<title>` tag. 
+The **Linkchecker** parses an input Markdown file to extract all contained URLs. For each URL, the program performs an asynchronous HTTP request using a concurrency limit of 32 simultaneous workers to retrieve the page's HTML body and extract the `<title>` tag. 
 
+The execution provides a terminal summary and writes the full report to a new file named `output.md` in the current directory.
 
-## Getting Started
+### Report Format
+The generated `output.md` will list each URL in the following format:
+* **Success:** `[ Page Title ] ( https://example.com )`
+* **Failure:** `[ Error Message or HTTP Code ] ( https://example.com/404 )`
+
+## 1. Getting Started
 
 ### Prerequisites
 - **Rust** (installed via `asdf` or `rustup`).
 - **Make** (for executing build tasks).
 
-### Installation & Build
-To set up the project and compile the binary:
+### 2. Installation & Build
+To set up the project and compile the release binary:
 
 ```bash
 make build
 ```
 
-### Usage
-Run the program by passing a Markdown file as an argument:
+### 3. Usage
 
-```bash
+Run the program by passing a Markdown file as an argument:
+```Bash
 make run ARGS="path/to/your/file.md"
 ```
 
-### Testing
-To run the test suite:
+### 4. Testing
 
-```bash
+To run the test suite, which includes HTML parsing and async network mocked validations:
+```Bash
 make test
 ```
+License
 
-
-## License
 This project is licensed under the MIT License.
